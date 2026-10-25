@@ -52,7 +52,7 @@ def main():
         for j, w in e.as_map()[0]: lime_imp[j] += abs(w)
     lime_imp /= a.n_lime
     nrm = lambda v: (v / v.max()).round(4).tolist()
-    res["importance_normalised"] = {"lags": names, "shap": nrm(shap_imp), "lime": nrm(lime_imp), "attention": nrm(att)}
+    res["importance_normalized"] = {"lags": names, "shap": nrm(shap_imp), "lime": nrm(lime_imp), "attention": nrm(att)}
     res["spearman"] = {"shap_vs_lime": float(spearmanr(shap_imp, lime_imp)[0]),
                        "shap_vs_attention": float(spearmanr(shap_imp, att)[0]),
                        "lime_vs_attention": float(spearmanr(lime_imp, att)[0])}
