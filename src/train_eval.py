@@ -11,20 +11,21 @@ from .trainutil import fit, predict
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", default="data/synthetic_scada.csv" if os.path.exists("data/synthetic_scada.csv") else None, help="SCADA-style CSV (default: committed synthetic CSV)"); ap.add_argument("--lags", type=int, default=24)
+    ap.add_argument("--csv", default="data/synthetic/synthetic_scada.csv" if os.path.exists("data/synthetic/synthetic_scada.csv") else None, help="SCADA-style CSV (default: committed synthetic CSV)"); ap.add_argument("--lags", type=int, default=24)
     ap.add_argument("--epochs", type=int, default=15); ap.add_argument("--quick", action="store_true")
     ap.add_argument("--n_background", type=int, default=300); ap.add_argument("--n_explain", type=int, default=500)
     ap.add_argument("--n_lime", type=int, default=50); ap.add_argument("--out", default="results")
     a = ap.parse_args()
-    if a.quick: a.epochs, a.n_background, a.n_explain, a.n_lime = 5, 100, 100, 10
+    if a.quick: a.epochs, a.n_background, a.n_explain, a.n_lime = 6, 50, 50, 5
     df = load_scada_csv(a.csv) if a.csv else synthetic_scada()
     df = df[["wind_speed"]]          # paper: lagged wind speed as the 24 input features
     X, y = make_windows(df, lookback=a.lags)
     tr, va, te = chrono_split(len(X))
     sc = Scaler().fit(X[tr]); Xs = sc.transform(X).astype("float32")
-    ym, ys = y[tr].mean(), y[tr].std(); yn = ((y - ym) / ys).astype("float32")
+    last = X[:, -1, 0]; d = y - last      # predict the change from the last reading (residual on persistence)
+    ym, ys = d[tr].mean(), d[tr].std(); yn = ((d - ym) / ys).astype("float32")
     model = fit(CNNBiLSTMAttention(1), Xs[tr], yn[tr], Xs[va], yn[va], epochs=a.epochs)
-    pred = predict(model, Xs[te]) * ys + ym
+    pred = last[te] + predict(model, Xs[te]) * ys + ym
     res = {"metrics_test": regression_metrics(y[te], pred),
            "persistence_test": regression_metrics(y[te], X[te][:, -1, 0])}
     names = [f"t-{a.lags - i}" for i in range(a.lags)]   # index i -> lag
